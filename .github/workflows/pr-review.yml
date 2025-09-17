@@ -48,9 +48,9 @@ jobs:
             const analysis = JSON.parse(process.env.ANALYSIS_RESPONSE);
             const body = `🤖 **Análise Gemini**
       
-      **Resumo:** ${analysis.summary}
-      **Risco:** ${analysis.risk}
-      **Mensagem:** ${analysis.message}`;
+            **Resumo:** ${analysis.summary}
+            **Risco:** ${analysis.risk}
+            **Mensagem:** ${analysis.message}`;
       
             await github.rest.issues.createComment({
               owner: context.repo.owner,
