@@ -40,8 +40,8 @@ namespace UOWRepository.Controllers
             return Ok();
         }
 		
-		 [HttpPost]
-        public IActionResult Delete(Funcioanario funcioanario)
+	  [HttpPost]
+        public IActionResult DeleteAsync(Funcioanario funcioanario)
         {
             _unitOfWork.FuncionarioRepository.Add(funcioanario);
             _unitOfWork.Commit();
