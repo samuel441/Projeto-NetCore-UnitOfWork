@@ -28,7 +28,7 @@ jobs:
         id: analysis
         run: |
           echo "Chamando Gemini..."
-          RESPONSE=$(curl -s -X POST "https://df19db00976a.ngrok-free.app/api/analyze/analyze" \
+          RESPONSE=$(curl -s -X POST "https://09bc5f1bf54c.ngrok-free.app/api/analyze/analyze" \
             -H "Content-Type: application/json" \
             -d "{
               \"pr_number\": \"${{ github.event.pull_request.number }}\",
