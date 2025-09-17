@@ -28,8 +28,7 @@ jobs:
         id: analysis
         run: |
           echo "Chamando Gemini..."
-          RESPONSE=$(curl -s -X POST "https://api.gemini.google.com/analyze" \
-            -H "Authorization: Bearer ${{ secrets.GEMINI_API_KEY }}" \
+          RESPONSE=$(curl -s -X POST "https://9af45b73e42d.ngrok-free.app/analyze/analyze" \
             -H "Content-Type: application/json" \
             -d "{
               \"pr_number\": \"${{ github.event.pull_request.number }}\",
