@@ -24,8 +24,9 @@ jobs:
 
           FILES_JSON="["
           for f in $FILES; do
-            # Só arquivos .cs
+            # Apenas arquivos .cs
             if [[ -f "$f" && "$f" == *.cs ]]; then
+              # Converte conteúdo para JSON seguro
               CONTENT=$(jq -Rs . < "$f")
               FILES_JSON="${FILES_JSON}{\"filename\":\"$f\",\"content\":$CONTENT},"
             fi
@@ -36,17 +37,17 @@ jobs:
       - name: Send data to Gemini
         id: analysis
         run: |
-          # Salva JSON em arquivo temporário para evitar problemas de shell
-          printf '%s' "${{ steps.files.outputs.files }}" > files.json
+          # Salva JSON dos arquivos em arquivo temporário
+          echo "${{ steps.files.outputs.files }}" > files.json
 
-          # Monta payload seguro com jq
+          # Monta payload seguro com jq, lendo do arquivo
           JSON_PAYLOAD=$(jq -n \
             --arg pr_number "${{ github.event.pull_request.number }}" \
             --arg title "${{ github.event.pull_request.title }}" \
             --slurpfile files files.json \
             '{pr_number: $pr_number, title: $title, files: $files[0]}')
 
-          # Envia para Gemini
+          # Envia para o endpoint Gemini
           RESPONSE=$(curl -s -X POST "https://3a6b3dfe46cb.ngrok-free.app/api/v1/review_pr" \
             -H "Content-Type: application/json" \
             -d "$JSON_PAYLOAD")
