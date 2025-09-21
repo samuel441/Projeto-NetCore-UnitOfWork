@@ -12,7 +12,7 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v3
 
-      - name: Gather changed C# files
+      - name: Gather changed C# files and encode in Base64
         id: files
         run: |
           BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
@@ -22,15 +22,12 @@ jobs:
           MERGE_BASE=$(git merge-base origin/$BASE_BRANCH origin/$HEAD_BRANCH)
           FILES=$(git diff --name-only $MERGE_BASE origin/$HEAD_BRANCH)
 
-          # Cria JSON dinamicamente com jq
-          FILES_JSON=$(jq -n '$ARGS.positional | map({filename: ., content: (input_filename | . | @text)})' --args $FILES)
-
-          # Alternativa segura: salvar cada arquivo usando jq
           FILES_JSON="["
           for f in $FILES; do
             if [[ -f "$f" && "$f" == *.cs ]]; then
-              CONTENT=$(jq -Rs . < "$f")
-              FILES_JSON="${FILES_JSON}{\"filename\":\"$f\",\"content\":$CONTENT},"
+              # Conteúdo em Base64 seguro
+              CONTENT=$(base64 < "$f" | tr -d '\n')
+              FILES_JSON="${FILES_JSON}{\"filename\":\"$f\",\"content\":\"$CONTENT\"},"
             fi
           done
           FILES_JSON="${FILES_JSON%,}]"  # remove última vírgula
