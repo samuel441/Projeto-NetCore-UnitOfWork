@@ -12,7 +12,7 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v3
 
-      - name: Get changed C# files with content
+      - name: Gather changed C# files
         id: files
         run: |
           BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
@@ -22,11 +22,13 @@ jobs:
           MERGE_BASE=$(git merge-base origin/$BASE_BRANCH origin/$HEAD_BRANCH)
           FILES=$(git diff --name-only $MERGE_BASE origin/$HEAD_BRANCH)
 
+          # Cria JSON dinamicamente com jq
+          FILES_JSON=$(jq -n '$ARGS.positional | map({filename: ., content: (input_filename | . | @text)})' --args $FILES)
+
+          # Alternativa segura: salvar cada arquivo usando jq
           FILES_JSON="["
           for f in $FILES; do
-            # Apenas arquivos .cs
             if [[ -f "$f" && "$f" == *.cs ]]; then
-              # Converte conteúdo para JSON seguro
               CONTENT=$(jq -Rs . < "$f")
               FILES_JSON="${FILES_JSON}{\"filename\":\"$f\",\"content\":$CONTENT},"
             fi
@@ -37,10 +39,10 @@ jobs:
       - name: Send data to Gemini
         id: analysis
         run: |
-          # Salva JSON dos arquivos em arquivo temporário
+          # Salva JSON em arquivo temporário
           echo "${{ steps.files.outputs.files }}" > files.json
 
-          # Monta payload seguro com jq, lendo do arquivo
+          # Monta payload seguro com jq
           JSON_PAYLOAD=$(jq -n \
             --arg pr_number "${{ github.event.pull_request.number }}" \
             --arg title "${{ github.event.pull_request.title }}" \
