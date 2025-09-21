@@ -12,41 +12,38 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v3
 
-      - name: Gather changed C# files and encode in Base64
+      - name: Get changed files and encode in Base64
         id: files
         run: |
-          BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
-          HEAD_BRANCH="${{ github.event.pull_request.head.ref }}"
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          BASE_BRANCH=${{ github.event.pull_request.base.ref }}
+          HEAD_BRANCH=${{ github.event.pull_request.head.ref }}
 
           git fetch origin $BASE_BRANCH $HEAD_BRANCH
           MERGE_BASE=$(git merge-base origin/$BASE_BRANCH origin/$HEAD_BRANCH)
           FILES=$(git diff --name-only $MERGE_BASE origin/$HEAD_BRANCH)
 
-          FILES_JSON="["
+          FILES_JSON=$(jq -n '[]')
           for f in $FILES; do
             if [[ -f "$f" && "$f" == *.cs ]]; then
-              # Conteúdo em Base64 seguro
-              CONTENT=$(base64 < "$f" | tr -d '\n')
-              FILES_JSON="${FILES_JSON}{\"filename\":\"$f\",\"content\":\"$CONTENT\"},"
+              CONTENT_BASE64=$(base64 "$f" | tr -d '\n')
+              FILE_OBJ=$(jq -n --arg fn "$f" --arg ct "$CONTENT_BASE64" '{filename: $fn, content: $ct}')
+              FILES_JSON=$(jq --argjson fobj "$FILE_OBJ" '. += [$fobj]' <<< "$FILES_JSON")
             fi
           done
-          FILES_JSON="${FILES_JSON%,}]"  # remove última vírgula
-          echo "files=$FILES_JSON" >> $GITHUB_OUTPUT
+
+          echo "files_json=$FILES_JSON" >> $GITHUB_OUTPUT
 
       - name: Send data to Gemini
         id: analysis
         run: |
-          # Salva JSON em arquivo temporário
-          echo "${{ steps.files.outputs.files }}" > files.json
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          FILES_JSON="${{ steps.files.outputs.files_json }}"
 
-          # Monta payload seguro com jq
-          JSON_PAYLOAD=$(jq -n \
-            --arg pr_number "${{ github.event.pull_request.number }}" \
-            --arg title "${{ github.event.pull_request.title }}" \
-            --slurpfile files files.json \
-            '{pr_number: $pr_number, title: $title, files: $files[0]}')
+          JSON_PAYLOAD=$(jq -n --arg pr_number "$PR_NUMBER" --arg title "$PR_TITLE" --argjson files "$FILES_JSON" \
+            '{pr_number: $pr_number, title: $title, files: $files}')
 
-          # Envia para o endpoint Gemini
           RESPONSE=$(curl -s -X POST "https://3a6b3dfe46cb.ngrok-free.app/api/v1/review_pr" \
             -H "Content-Type: application/json" \
             -d "$JSON_PAYLOAD")
@@ -81,7 +78,7 @@ jobs:
               body
             });
 
-            // Aprova automaticamente se nenhuma criticidade >= 5
+            // Aprova automaticamente se criticidade < 5
             if (maxCriticidade < 5) {
               await github.rest.pulls.createReview({
                 owner: context.repo.owner,
