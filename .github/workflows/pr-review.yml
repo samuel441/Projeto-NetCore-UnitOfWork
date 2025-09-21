@@ -1,33 +1,36 @@
-name: PR Review
+name: Review PR
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize]
 
 jobs:
-  review-pr:
+  review:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
+      - name: Checkout code
         uses: actions/checkout@v3
 
       - name: Setup jq
         run: sudo apt-get install -y jq
 
-      - name: Prepare files JSON
-        id: files
+      - name: Prepare JSON payload
+        shell: bash
         run: |
           PR_NUMBER=${{ github.event.pull_request.number }}
           BASE_BRANCH=${{ github.event.pull_request.base.ref }}
           HEAD_BRANCH=${{ github.event.pull_request.head.ref }}
 
+          # Obtém o merge base e lista de arquivos modificados
           git fetch origin $BASE_BRANCH $HEAD_BRANCH
           MERGE_BASE=$(git merge-base origin/$BASE_BRANCH origin/$HEAD_BRANCH)
           FILES=$(git diff --name-only $MERGE_BASE origin/$HEAD_BRANCH)
 
-          FILES_JSON=$(jq -n '[]')
+          # Inicializa array JSON
+          FILES_JSON='[]'
 
+          # Loop para arquivos .cs
           for f in $FILES; do
             if [[ -f "$f" && "$f" == *.cs ]]; then
               CONTENT_BASE64=$(base64 "$f" | tr -d '\n')
@@ -36,61 +39,23 @@ jobs:
             fi
           done
 
-          FILES_JSON_ONELINE=$(jq -c '.' <<< "$FILES_JSON")
-          echo "files_json=$FILES_JSON_ONELINE" >> $GITHUB_OUTPUT
-
-      - name: Send data to Gemini
-        id: analysis
-        run: |
+          # Monta payload final
           JSON_PAYLOAD=$(jq -n \
-            --arg pr_number "${{ github.event.pull_request.number }}" \
-            --arg title "${{ github.event.pull_request.title }}" \
-            --argjson files "${{ steps.files.outputs.files_json }}" \
+            --arg pr_number "$PR_NUMBER" \
+            --arg title "PR review files" \
+            --argjson files "$FILES_JSON" \
             '{pr_number: $pr_number, title: $title, files: $files}')
 
-          RESPONSE=$(curl -s -X POST "https://3a6b3dfe46cb.ngrok-free.app/api/v1/review_pr" \
+          echo "JSON payload ready:"
+          echo "$JSON_PAYLOAD"
+
+          # Salva no output para steps futuros se quiser
+          echo "json_payload=$JSON_PAYLOAD" >> $GITHUB_OUTPUT
+
+      - name: Send to Gemini
+        shell: bash
+        run: |
+          # Usa o payload do step anterior
+          curl -s -X POST "https://3a6b3dfe46cb.ngrok-free.app/api/v1/review_pr" \
             -H "Content-Type: application/json" \
-            -d "$JSON_PAYLOAD")
-          
-          echo "response=$RESPONSE" >> $GITHUB_OUTPUT
-
-      - name: Comment analysis and approve if safe
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const response = JSON.parse(`${{ steps.analysis.outputs.response }}`);
-
-            let body = "🤖 **Análise Gemini**\n\n";
-            let maxCriticidade = 0;
-
-            for (const review of response.reviews) {
-              body += `### 📝 ${review.file}\n`;
-              body += `**Feedback:** ${review.feedback}\n`;
-              body += `**Criticidade:** ${review.criticidade}\n\n`;
-
-              const criticidadeNum = parseInt(review.criticidade, 10);
-              if (criticidadeNum > maxCriticidade) {
-                maxCriticidade = criticidadeNum;
-              }
-            }
-
-            // Comenta sempre
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.payload.pull_request.number,
-              body
-            });
-
-            // Aprova automaticamente se nenhuma criticidade >= 5
-            if (maxCriticidade < 5) {
-              await github.rest.pulls.createReview({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                pull_number: context.payload.pull_request.number,
-                event: "APPROVE",
-                body: "✅ Revisado automaticamente pelo agente Gemini"
-              });
-            } else {
-              console.log("PR não aprovado automaticamente devido a criticidade alta.");
-            }
+            -d "${{ steps.prepare-json-payload.outputs.json_payload }}"
