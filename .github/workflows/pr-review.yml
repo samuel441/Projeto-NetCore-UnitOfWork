@@ -12,36 +12,43 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v3
 
-      - name: Get changed files with content
+      - name: Get changed files with content (git only)
         id: files
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Lista arquivos alterados no PR
-          FILES=$(gh pr view ${{ github.event.pull_request.number }} --json files -q '.files[].path')
+          BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
+          HEAD_BRANCH="${{ github.event.pull_request.head.ref }}"
+
+          # Atualiza o repo e branches
+          git fetch origin $BASE_BRANCH $HEAD_BRANCH
+
+          # Merge base entre a branch do PR e a branch base
+          MERGE_BASE=$(git merge-base origin/$BASE_BRANCH origin/$HEAD_BRANCH)
+
+          # Lista arquivos alterados desde o merge base
+          FILES=$(git diff --name-only $MERGE_BASE origin/$HEAD_BRANCH)
 
           FILES_JSON="["
           for f in $FILES; do
             if [[ -f "$f" ]]; then
-              # lê conteúdo do arquivo e converte para JSON seguro
+              # lê conteúdo e converte para JSON seguro
               CONTENT=$(jq -Rs . < "$f")
               FILES_JSON="${FILES_JSON}{\"filename\":\"$f\",\"content\":$CONTENT},"
             fi
           done
-          FILES_JSON="${FILES_JSON%,}]"  # remove última vírgula e fecha array
+          FILES_JSON="${FILES_JSON%,}]"  # remove última vírgula
           echo "files=$FILES_JSON" >> $GITHUB_OUTPUT
 
       - name: Send data to Gemini
         id: analysis
         run: |
-          # monta JSON de forma segura
           JSON_PAYLOAD=$(jq -n \
             --arg pr_number "${{ github.event.pull_request.number }}" \
             --arg title "${{ github.event.pull_request.title }}" \
             --argjson files "${{ steps.files.outputs.files }}" \
             '{pr_number: $pr_number, title: $title, files: $files}')
 
-          RESPONSE=$(curl -s -X POST "https://3a6b3dfe46cb.ngrok-free.app/api/v1/review_pr" \
+          RESPONSE=$(curl -s -X POST "https://api.gemini.google.com/analyze" \
+            -H "Authorization: Bearer ${{ secrets.GEMINI_API_KEY }}" \
             -H "Content-Type: application/json" \
             -d "$JSON_PAYLOAD")
           
