@@ -1,18 +1,21 @@
-name: PR Pre-Review
+name: PR Review
 
 on:
   pull_request:
     types: [opened, synchronize, reopened]
 
 jobs:
-  analyze-pr:
+  review-pr:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
 
-      - name: Get changed files and encode in Base64
+      - name: Setup jq
+        run: sudo apt-get install -y jq
+
+      - name: Prepare files JSON
         id: files
         run: |
           PR_NUMBER=${{ github.event.pull_request.number }}
@@ -24,6 +27,7 @@ jobs:
           FILES=$(git diff --name-only $MERGE_BASE origin/$HEAD_BRANCH)
 
           FILES_JSON=$(jq -n '[]')
+
           for f in $FILES; do
             if [[ -f "$f" && "$f" == *.cs ]]; then
               CONTENT_BASE64=$(base64 "$f" | tr -d '\n')
@@ -32,22 +36,22 @@ jobs:
             fi
           done
 
-          echo "files_json=$FILES_JSON" >> $GITHUB_OUTPUT
+          FILES_JSON_ONELINE=$(jq -c '.' <<< "$FILES_JSON")
+          echo "files_json=$FILES_JSON_ONELINE" >> $GITHUB_OUTPUT
 
       - name: Send data to Gemini
         id: analysis
         run: |
-          PR_NUMBER=${{ github.event.pull_request.number }}
-          PR_TITLE="${{ github.event.pull_request.title }}"
-          FILES_JSON="${{ steps.files.outputs.files_json }}"
-
-          JSON_PAYLOAD=$(jq -n --arg pr_number "$PR_NUMBER" --arg title "$PR_TITLE" --argjson files "$FILES_JSON" \
+          JSON_PAYLOAD=$(jq -n \
+            --arg pr_number "${{ github.event.pull_request.number }}" \
+            --arg title "${{ github.event.pull_request.title }}" \
+            --argjson files "${{ steps.files.outputs.files_json }}" \
             '{pr_number: $pr_number, title: $title, files: $files}')
 
           RESPONSE=$(curl -s -X POST "https://3a6b3dfe46cb.ngrok-free.app/api/v1/review_pr" \
             -H "Content-Type: application/json" \
             -d "$JSON_PAYLOAD")
-
+          
           echo "response=$RESPONSE" >> $GITHUB_OUTPUT
 
       - name: Comment analysis and approve if safe
@@ -78,7 +82,7 @@ jobs:
               body
             });
 
-            // Aprova automaticamente se criticidade < 5
+            // Aprova automaticamente se nenhuma criticidade >= 5
             if (maxCriticidade < 5) {
               await github.rest.pulls.createReview({
                 owner: context.repo.owner,
