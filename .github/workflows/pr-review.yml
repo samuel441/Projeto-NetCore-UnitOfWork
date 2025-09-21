@@ -15,7 +15,7 @@ jobs:
       - name: Get changed files with content
         id: files
         env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Lista arquivos alterados no PR
           FILES=$(gh pr view ${{ github.event.pull_request.number }} --json files -q '.files[].path')
