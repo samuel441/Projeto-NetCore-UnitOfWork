@@ -61,3 +61,12 @@ C:\Users\Samuel\source\repos\UOWRepository\UOWRepository\bin\Debug\netcoreapp3.1
 C:\Users\Samuel\source\repos\UOWRepository\UOWRepository\bin\Debug\netcoreapp3.1\Newtonsoft.Json.Bson.dll
 C:\Users\Samuel\source\repos\UOWRepository\UOWRepository\obj\Debug\netcoreapp3.1\UOWRepository.csproj.CoreCompileInputs.cache
 C:\Users\Samuel\source\repos\UOWRepository\UOWRepository\obj\Debug\netcoreapp3.1\UOWRepository.MvcApplicationPartsAssemblyInfo.cache
+C:\Users\samue\Documents\PESSOAL\project\Projeto-NetCore-UnitOfWork\UOWRepository\obj\Debug\netcoreapp3.1\UOWRepository.csproj.AssemblyReference.cache
+C:\Users\samue\Documents\PESSOAL\project\Projeto-NetCore-UnitOfWork\UOWRepository\obj\Debug\netcoreapp3.1\UOWRepository.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\samue\Documents\PESSOAL\project\Projeto-NetCore-UnitOfWork\UOWRepository\obj\Debug\netcoreapp3.1\UOWRepository.AssemblyInfoInputs.cache
+C:\Users\samue\Documents\PESSOAL\project\Projeto-NetCore-UnitOfWork\UOWRepository\obj\Debug\netcoreapp3.1\UOWRepository.AssemblyInfo.cs
+C:\Users\samue\Documents\PESSOAL\project\Projeto-NetCore-UnitOfWork\UOWRepository\obj\Debug\netcoreapp3.1\UOWRepository.csproj.CoreCompileInputs.cache
+C:\Users\samue\Documents\PESSOAL\project\Projeto-NetCore-UnitOfWork\UOWRepository\obj\Debug\netcoreapp3.1\UOWRepository.MvcApplicationPartsAssemblyInfo.cache
+C:\Users\samue\Documents\PESSOAL\project\Projeto-NetCore-UnitOfWork\UOWRepository\obj\Debug\netcoreapp3.1\UOWRepository.sourcelink.json
+C:\Users\samue\Documents\PESSOAL\project\Projeto-NetCore-UnitOfWork\UOWRepository\obj\Debug\netcoreapp3.1\UOWRepository.dll
+C:\Users\samue\Documents\PESSOAL\project\Projeto-NetCore-UnitOfWork\UOWRepository\obj\Debug\netcoreapp3.1\UOWRepository.pdb

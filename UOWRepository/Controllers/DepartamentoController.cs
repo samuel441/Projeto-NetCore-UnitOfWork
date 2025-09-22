@@ -1,4 +1,7 @@
-﻿using UOWRepository.Data;
+﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
+using System.Threading.Tasks;
+using UOWRepository.Data;
 using UOWRepository.Model;
 
 namespace UOWRepository.Controllers
