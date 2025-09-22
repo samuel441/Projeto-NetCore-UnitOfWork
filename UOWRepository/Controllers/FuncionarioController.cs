@@ -48,14 +48,5 @@ namespace UOWRepository.Controllers
 
             return Ok();
         }
-
-        [HttpPost]
-        public IActionResult DeleteTEsteAsync(Funcioanario funcioanario)
-        {
-            _unitOfWork.FuncionarioRepository.Add(funcioanario);
-            _unitOfWork.Commit();
-
-            return Ok();
-        }
     }
 }
