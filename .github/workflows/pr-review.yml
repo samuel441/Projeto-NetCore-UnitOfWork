@@ -15,7 +15,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      # 2. Listar arquivos .cs alterados e codificar em base64
+      # 2. Listar diffs de arquivos .cs e codificar em base64
       - name: Get changed C# files
         id: changed_files
         run: |
@@ -26,8 +26,9 @@ jobs:
           for file in "${files[@]}"; do
             # Adiciona a regra para enviar apenas arquivos com a extensão .cs
             if [[ "$file" == *.cs && -f "$file" ]]; then
-              content=$(base64 -w0 "$file")
-              files_array+=("{\"filename\":\"$file\",\"content\":\"$content\"}")
+              # Captura apenas o diff do arquivo
+              diff_content=$(git diff -p ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} -- "$file" | base64 -w0)
+              files_array+=("{\"filename\":\"$file\",\"content\":\"$diff_content\"}")
             fi
           done
 
@@ -65,7 +66,6 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            // A saída da API já é JSON, então use-a diretamente do contexto
             const response = JSON.parse(process.env.RESPONSE_JSON);
 
             if (!response.reviews || !Array.isArray(response.reviews)) {
