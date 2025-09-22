@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("UOWRepository")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+69b31b76a550e0666b82e75a4c521853a5a25c12")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4d57bea6b7928f3d1642d30686fc0cdab499f969")]
 [assembly: System.Reflection.AssemblyProductAttribute("UOWRepository")]
 [assembly: System.Reflection.AssemblyTitleAttribute("UOWRepository")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
