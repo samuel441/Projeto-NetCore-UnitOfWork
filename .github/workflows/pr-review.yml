@@ -9,18 +9,25 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout do código
+      # 1. Checkout do código com histórico completo
       - name: Checkout
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # necessário para pegar todos os commits e o diff completo
 
       # 2. Listar arquivos alterados na PR
       - name: Get changed files
         id: changed_files
         run: |
+          # Busca arquivos alterados entre base e head da PR
+          mapfile -t files < <(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }})
+
           files_array=()
-          for file in $(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }}); do
-            content=$(base64 -w0 "$file")
-            files_array+=("{\"filename\":\"$file\",\"content\":\"$content\"}")
+          for file in "${files[@]}"; do
+            if [ -f "$file" ]; then
+              content=$(base64 -w0 "$file")
+              files_array+=("{\"filename\":\"$file\",\"content\":\"$content\"}")
+            fi
           done
 
           files_json="[${files_array[*]}]"
