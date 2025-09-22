@@ -26,10 +26,10 @@ namespace UOWRepository.Controllers
             if (id <= 0)
             {
                 _logger.LogInformation("invalid id");
-                return NotFound();
+                return BadRequest();
             }
 
-            var departamento = await _unitOfWork.DepartamentoRepository.GetDataAsync(x => x.Id == id, x => x.Include(f => f.Funcioanarios));
+            var departamento = await _unitOfWork.DepartamentoRepository.GetDataAsync(x => x.Id == id, x => x.Include(f => f.Funcionarios));
 
             if (departamento is null)
             {

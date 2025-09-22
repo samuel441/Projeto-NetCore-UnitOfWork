@@ -6,6 +6,6 @@ namespace UOWRepository.Model
     {
         public int Id { get; set; }
         public string NomeDepartamento { get; set; }
-        public List<Funcioanario> Funcioanarios { get; set; }
+        public List<Funcioanario> Funcionarios { get; set; }
     }
 }
