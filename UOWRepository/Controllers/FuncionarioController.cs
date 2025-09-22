@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using UOWRepository.Data;
 using UOWRepository.Model;
 
@@ -14,15 +15,23 @@ namespace UOWRepository.Controllers
     public class FuncionarioController : ControllerBase
     {
         private readonly IUnitOfWork _unitOfWork;
+        private readonly ILogger<FuncionarioController> _logger;
 
-        public FuncionarioController(IUnitOfWork unitOfWork)
+        public FuncionarioController(IUnitOfWork unitOfWork, ILogger<FuncionarioController> logger)
         {
             _unitOfWork = unitOfWork;
+            _logger = logger;
         }
 
         [HttpGet("{id:int}")]
         public async Task<IActionResult> ObterPorId(int id)
         {
+            if (id <= 0)
+            {
+                _logger.LogInformation("invalid id: {id}", id);
+                return BadRequest();
+            }
+
             var funcioanario = await _unitOfWork.FuncionarioRepository.GetByIdAsync(id);
 
             if (funcioanario is null)
@@ -33,15 +42,6 @@ namespace UOWRepository.Controllers
 
         [HttpPost]
         public IActionResult NovoFuncionario(Funcioanario funcioanario)
-        {
-            _unitOfWork.FuncionarioRepository.Add(funcioanario);
-            _unitOfWork.Commit();
-
-            return Ok();
-        }
-		
-	  [HttpPost]
-        public IActionResult DeleteTEsteAsync(Funcioanario funcioanario)
         {
             _unitOfWork.FuncionarioRepository.Add(funcioanario);
             _unitOfWork.Commit();
