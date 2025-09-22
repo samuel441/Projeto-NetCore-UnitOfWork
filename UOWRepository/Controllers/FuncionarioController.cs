@@ -15,9 +15,9 @@ namespace UOWRepository.Controllers
     public class FuncionarioController : ControllerBase
     {
         private readonly IUnitOfWork _unitOfWork;
-        private readonly ILogger<DepartamentoController> _logger;
+        private readonly ILogger<FuncionarioController> _logger;
 
-        public FuncionarioController(IUnitOfWork unitOfWork, ILogger<DepartamentoController> logger)
+        public FuncionarioController(IUnitOfWork unitOfWork, ILogger<FuncionarioController> logger)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
