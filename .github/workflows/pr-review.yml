@@ -1,65 +1,54 @@
-name: PR Auto Review with Gemini
+name: PR Review Automation
 
 on:
   pull_request:
     types: [opened, synchronize, reopened]
 
 jobs:
-  review:
+  review-pr:
     runs-on: ubuntu-latest
-    env:
-      API_URL: https://3a6b3dfe46cb.ngrok-free.app/api/v1/review_pr
 
     steps:
-      - name: Checkout code
+      # 1. Checkout do código
+      - name: Checkout
         uses: actions/checkout@v3
 
+      # 2. Listar arquivos alterados na PR
       - name: Get changed files
         id: changed_files
         run: |
-          FILES_JSON="["
-          FIRST=true
-          for f in $(git diff --name-only origin/${{ github.event.pull_request.base.ref }} ${{ github.sha }}); do
-            CONTENT=$(base64 -w 0 "$f")
-            if [ "$FIRST" = true ]; then
-              FIRST=false
-            else
-              FILES_JSON+=","
-            fi
-            FILES_JSON+="{\"filename\":\"$f\",\"content\":\"$CONTENT\"}"
+          FILES_JSON=$(jq -c -n '[]')
+          for file in $(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }}); do
+            CONTENT=$(base64 -w0 "$file")
+            FILES_JSON=$(echo $FILES_JSON | jq --arg filename "$file" --arg content "$CONTENT" '. + [{"filename": $filename, "content": $content}]')
           done
-          FILES_JSON+="]"
-          echo "FILES_JSON=$FILES_JSON" >> $GITHUB_OUTPUT
+          echo "::set-output name=FILES_JSON::$FILES_JSON"
 
-      - name: Create JSON payload
-        id: payload
+      # 3. Gerar JSON e chamar API
+      - name: Call Review API
+        id: api_call
         run: |
-          # Converte o output em JSON real para o --argjson
-          FILES_JSON_VALID=$(echo '${{ steps.changed_files.outputs.FILES_JSON }}' | jq .)
           JSON_PAYLOAD=$(jq -n \
             --arg pr_number "${{ github.event.pull_request.number }}" \
             --arg title "${{ github.event.pull_request.title }}" \
-            --argjson files "$FILES_JSON_VALID" \
+            --argjson files "${{ steps.changed_files.outputs.FILES_JSON }}" \
             '{pr_number: $pr_number, title: $title, files: $files}' | jq -c '.')
-          echo "JSON_PAYLOAD=$JSON_PAYLOAD" >> $GITHUB_OUTPUT
-
-      - name: Call review API
-        id: analysis
-        run: |
-          RESPONSE=$(curl -s -X POST "$API_URL" \
+          
+          RESPONSE=$(curl -s -X POST "https://3a6b3dfe46cb.ngrok-free.app/api/v1/review_pr" \
             -H "Content-Type: application/json" \
             -d "$JSON_PAYLOAD")
-          echo "response=$RESPONSE" >> $GITHUB_OUTPUT
+          
+          echo "::set-output name=response::$RESPONSE"
 
-      - name: Comment and approve PR
+      # 4. Comentar na PR e aprovar automaticamente se criticidade < 5
+      - name: Comment & Approve PR
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const response = JSON.parse(`${{ steps.analysis.outputs.response }}`);
+            const response = JSON.parse(`${{ steps.api_call.outputs.response }}`);
 
             if (!response.reviews || !Array.isArray(response.reviews)) {
-              console.log("No reviews returned from API.");
+              console.log("Nenhuma revisão retornada.");
               return;
             }
 
@@ -77,7 +66,7 @@ jobs:
               }
             }
 
-            // Sempre comenta na PR
+            // Comenta sempre
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
