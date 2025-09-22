@@ -28,7 +28,7 @@ namespace UOWRepository.Controllers
         {
             if (id <= 0)
             {
-                _logger.LogInformation("invalid id");
+                _logger.LogInformation("invalid id: {id}", id);
                 return BadRequest();
             }
 
