@@ -17,12 +17,15 @@ jobs:
       - name: Get changed files
         id: changed_files
         run: |
-          FILES_JSON=$(jq -c -n '[]')
-          for file in $(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }}); do
-            CONTENT=$(base64 -w0 "$file")
-            FILES_JSON=$(echo $FILES_JSON | jq --arg filename "$file" --arg content "$CONTENT" '. + [{"filename": $filename, "content": $content}]')
+          files_array=()
+          for file in $(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }}); do
+            content=$(base64 -w0 "$file")
+            files_array+=("{\"filename\":\"$file\",\"content\":\"$content\"}")
           done
-          echo "::set-output name=FILES_JSON::$FILES_JSON"
+
+          files_json="[${files_array[*]}]"
+          echo "FILES_JSON=$files_json" >> $GITHUB_OUTPUT
+          echo "Arquivos alterados enviados para revisão: $files_json"
 
       # 3. Gerar JSON e chamar API
       - name: Call Review API
@@ -34,18 +37,20 @@ jobs:
             --argjson files "${{ steps.changed_files.outputs.FILES_JSON }}" \
             '{pr_number: $pr_number, title: $title, files: $files}' | jq -c '.')
           
+          echo "Payload enviado: $JSON_PAYLOAD"
+
           RESPONSE=$(curl -s -X POST "https://3a6b3dfe46cb.ngrok-free.app/api/v1/review_pr" \
             -H "Content-Type: application/json" \
             -d "$JSON_PAYLOAD")
           
-          echo "::set-output name=response::$RESPONSE"
+          echo "RESPONSE=$RESPONSE" >> $GITHUB_OUTPUT
 
       # 4. Comentar na PR e aprovar automaticamente se criticidade < 5
       - name: Comment & Approve PR
         uses: actions/github-script@v7
         with:
           script: |
-            const response = JSON.parse(`${{ steps.api_call.outputs.response }}`);
+            const response = JSON.parse(`${{ steps.api_call.outputs.RESPONSE }}`);
 
             if (!response.reviews || !Array.isArray(response.reviews)) {
               console.log("Nenhuma revisão retornada.");
