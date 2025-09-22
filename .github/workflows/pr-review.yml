@@ -1,48 +1,93 @@
-name: PR Pre-Review
+name: PR Review Automation
 
 on:
   pull_request:
     types: [opened, synchronize, reopened]
 
 jobs:
-  analyze-pr:
+  review-pr:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
+      # 1. Checkout com histórico completo
+      - name: Checkout
         uses: actions/checkout@v3
-
-      - name: Get changed files
-        id: files
-        uses: actions/github-script@v7
         with:
-          script: |
-            const { data: files } = await github.rest.pulls.listFiles({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: context.payload.pull_request.number,
-            });
-            core.setOutput("files", JSON.stringify(files.map(f => f.filename)));
+          fetch-depth: 0
 
-      - name: Send data to Gemini
-        id: analysis
+      # 2. Listar arquivos .cs alterados e codificar em base64
+      - name: Get changed C# files
+        id: changed_files
         run: |
-          echo "Chamando Gemini..."
-          RESPONSE=$(curl -s -X POST "https://api.gemini.google.com/analyze" \
-            -H "Authorization: Bearer ${{ secrets.GEMINI_API_KEY }}" \
-            -H "Content-Type: application/json" \
-            -d "{
-              \"pr_number\": \"${{ github.event.pull_request.number }}\",
-              \"title\": \"${{ github.event.pull_request.title }}\",
-              \"files\": ${{ steps.files.outputs.files }}
-            }")
-          echo "response=$RESPONSE" >> $GITHUB_OUTPUT
+          # Pega todos os arquivos alterados entre base e head da PR
+          mapfile -t files < <(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }})
+          
+          files_array=()
+          for file in "${files[@]}"; do
+            # Adiciona a regra para enviar apenas arquivos com a extensão .cs
+            if [[ "$file" == *.cs && -f "$file" ]]; then
+              content=$(base64 -w0 "$file")
+              files_array+=("{\"filename\":\"$file\",\"content\":\"$content\"}")
+            fi
+          done
 
-      - name: Comment analysis
+          # Monta JSON válido com vírgulas entre elementos
+          if [ ${#files_array[@]} -gt 0 ]; then
+            files_json=$(printf ",%s" "${files_array[@]}")
+            files_json="[${files_json:1}]"
+          else
+            files_json="[]"
+          fi
+
+          echo "FILES_JSON=$(jq -c . <<< "$files_json")" >> $GITHUB_OUTPUT
+          echo "Arquivos alterados enviados: $files_json"
+
+      # 3. Montar payload JSON e chamar API
+      - name: Call Review API
+        id: api_call
+        run: |
+          JSON_PAYLOAD=$(jq -n \
+            --arg title "${{ github.event.pull_request.title }}" \
+            --argjson files '${{ steps.changed_files.outputs.FILES_JSON }}' \
+            '{title: $title, files: $files}' \
+          )
+          
+          echo "Payload enviado: $JSON_PAYLOAD"
+
+          RESPONSE=$(curl -s -X POST "https://3a6b3dfe46cb.ngrok-free.app/api/v1/review_pr" \
+            -H "Content-Type: application/json" \
+            -d "$JSON_PAYLOAD")
+          
+          echo "RESPONSE=$RESPONSE" >> $GITHUB_OUTPUT
+
+      # 4. Comentar na PR e aprovar automaticamente se criticidade < 5
+      - name: Comment & Approve PR
         uses: actions/github-script@v7
         with:
           script: |
-            const body = "🤖 **Análise Gemini**\n\n" + `${{ steps.analysis.outputs.response }}`;
+            // A saída da API já é JSON, então use-a diretamente do contexto
+            const response = JSON.parse(process.env.RESPONSE_JSON);
+
+            if (!response.reviews || !Array.isArray(response.reviews)) {
+              console.log("Nenhuma revisão retornada.");
+              return;
+            }
+
+            let body = "🤖 **Análise Gemini**\n\n";
+            let maxCriticidade = 0;
+
+            for (const review of response.reviews) {
+              body += `### 📝 ${review.file}\n`;
+              body += `**Feedback:** ${review.feedback}\n`;
+              body += `**Criticidade:** ${review.criticidade}\n\n`;
+
+              const criticidadeNum = parseInt(review.criticidade, 10);
+              if (criticidadeNum > maxCriticidade) {
+                maxCriticidade = criticidadeNum;
+              }
+            }
+
+            // Comenta sempre
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -50,14 +95,17 @@ jobs:
               body
             });
 
-      - name: Approve PR
-        uses: actions/github-script@v7
-        with:
-          script: |
-            await github.rest.pulls.createReview({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: context.payload.pull_request.number,
-              event: "APPROVE",
-              body: "✅ Revisado automaticamente pelo agente Gemini"
-            });
+            // Aprova automaticamente se nenhuma criticidade >= 5
+            if (maxCriticidade < 5) {
+              await github.rest.pulls.createReview({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.payload.pull_request.number,
+                event: "APPROVE",
+                body: "✅ Revisado automaticamente pelo agente Gemini"
+              });
+            } else {
+              console.log("PR não aprovada automaticamente devido a criticidade alta.");
+            }
+        env:
+          RESPONSE_JSON: ${{ steps.api_call.outputs.RESPONSE }}

@@ -1,7 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using System.Threading.Tasks;
-using UOWRepository.Data;
+﻿using UOWRepository.Data;
 using UOWRepository.Model;
 
 namespace UOWRepository.Controllers
@@ -11,10 +8,12 @@ namespace UOWRepository.Controllers
     public class DepartamentoController : ControllerBase
     {
         private readonly IUnitOfWork _unitOfWork;
+        private readonly ILogger<DepartamentoController> _logger;
 
-        public DepartamentoController(IUnitOfWork unitOfWork)
+        public DepartamentoController(IUnitOfWork unitOfWork,ILogger<DepartamentoController> logger  )
         {
             _unitOfWork = unitOfWork;
+            _logger = logger;
         }
 
         [HttpGet("{id:int}")]
@@ -23,7 +22,10 @@ namespace UOWRepository.Controllers
             var departamento = await _unitOfWork.DepartamentoRepository.GetDataAsync(x => x.Id == id, x => x.Include(f => f.Funcioanarios));
 
             if (departamento is null)
+            {
+                _logger.LogInformation("departamento not found");
                 return NotFound();
+            }
 
             return Ok(departamento);
         }
