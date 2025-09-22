@@ -16,6 +16,7 @@ jobs:
           fetch-depth: 0
 
       # 2. Listar diffs de arquivos .cs e codificar em base64
+      # 2. Listar apenas as adições de arquivos .cs e codificar em base64
       - name: Get changed C# files
         id: changed_files
         run: |
@@ -26,9 +27,13 @@ jobs:
           for file in "${files[@]}"; do
             # Adiciona a regra para enviar apenas arquivos com a extensão .cs
             if [[ "$file" == *.cs && -f "$file" ]]; then
-              # Captura apenas o diff do arquivo
-              diff_content=$(git diff -p ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} -- "$file" | base64 -w0)
-              files_array+=("{\"filename\":\"$file\",\"content\":\"$diff_content\"}")
+              # Captura apenas as linhas adicionadas (começando com '+') e ignora as linhas '+++' do cabeçalho
+              diff_content=$(git diff ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} -- "$file" | grep '^+' | grep -v '+++' | base64 -w0)
+              
+              # Adiciona o arquivo apenas se houver conteúdo
+              if [ -n "$diff_content" ]; then
+                files_array+=("{\"filename\":\"$file\",\"content\":\"$diff_content\"}")
+              fi
             fi
           done
 
