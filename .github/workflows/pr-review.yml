@@ -15,24 +15,23 @@ jobs:
         with:
           fetch-depth: 0
 
-      # 2. Listar arquivos alterados e codificar em base64
-      - name: Get changed files
+      # 2. Listar arquivos .cs alterados e codificar em base64
+      - name: Get changed C# files
         id: changed_files
         run: |
           # Pega todos os arquivos alterados entre base e head da PR
           mapfile -t files < <(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }})
           
-          # Use `jq` para construir o JSON de forma robusta
           files_array=()
           for file in "${files[@]}"; do
+            # Adiciona a regra para enviar apenas arquivos com a extensão .cs
             if [[ "$file" == *.cs && -f "$file" ]]; then
               content=$(base64 -w0 "$file")
-              # Adicione aspas para garantir que o jq lide com o conteúdo como uma string
               files_array+=("{\"filename\":\"$file\",\"content\":\"$content\"}")
             fi
           done
 
-          # Use `jq` para validar e formatar o array JSON
+          # Monta JSON válido com vírgulas entre elementos
           if [ ${#files_array[@]} -gt 0 ]; then
             files_json=$(printf ",%s" "${files_array[@]}")
             files_json="[${files_json:1}]"
@@ -47,11 +46,10 @@ jobs:
       - name: Call Review API
         id: api_call
         run: |
-          # Use a saída do passo anterior diretamente
           JSON_PAYLOAD=$(jq -n \
             --arg title "${{ github.event.pull_request.title }}" \
             --argjson files '${{ steps.changed_files.outputs.FILES_JSON }}' \
-            '{pr_number: $pr_number, title: $title, files: $files}' \
+            '{title: $title, files: $files}' \
           )
           
           echo "Payload enviado: $JSON_PAYLOAD"
