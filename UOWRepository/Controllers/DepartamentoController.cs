@@ -14,7 +14,7 @@ namespace UOWRepository.Controllers
         private readonly IUnitOfWork _unitOfWork;
         private readonly ILogger<DepartamentoController> _logger;
 
-        public DepartamentoController(IUnitOfWork unitOfWork,ILogger<DepartamentoController> logger  )
+        public DepartamentoController(IUnitOfWork unitOfWork, ILogger<DepartamentoController> logger)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
@@ -23,6 +23,12 @@ namespace UOWRepository.Controllers
         [HttpGet("{id:int}")]
         public async Task<IActionResult> ObterPorId(int id)
         {
+            if (id <= 0)
+            {
+                _logger.LogInformation("invalid id");
+                return NotFound();
+            }
+
             var departamento = await _unitOfWork.DepartamentoRepository.GetDataAsync(x => x.Id == id, x => x.Include(f => f.Funcioanarios));
 
             if (departamento is null)
